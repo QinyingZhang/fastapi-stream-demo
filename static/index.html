@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming API Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .output {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            min-height: 50px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .event-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+        .event-type {
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 FastAPI Streaming Demo</h1>
+
+        <!-- 文本流式响应演示 -->
+        <div class="demo-section">
+            <h2>文本流式响应</h2>
+            <button id="textBtn" onclick="streamText()">开始流式文本</button>
+            <div id="textOutput" class="output"></div>
+        </div>
+
+        <!-- SSE 演示 -->
+        <div class="demo-section">
+            <h2>Server-Sent Events (SSE)</h2>
+            <button id="sseBtn" onclick="streamSSE()">开始 SSE 流</button>
+            <div id="sseOutput" class="output"></div>
+        </div>
+    </div>
+
+    <script>
+        // 文本流式响应
+        async function streamText() {
+            const btn = document.getElementById('textBtn');
+            const output = document.getElementById('textOutput');
+            
+            btn.disabled = true;
+            output.textContent = '';
+            
+            try {
+                const response = await fetch('/stream-text');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const text = decoder.decode(value);
+                    output.textContent += text;
+                }
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+            
+            btn.disabled = false;
+        }
+
+        // SSE 流式响应
+        async function streamSSE() {
+            const btn = document.getElementById('sseBtn');
+            const output = document.getElementById('sseOutput');
+            
+            btn.disabled = true;
+            output.innerHTML = '';
+            
+            try {
+                const response = await fetch('/stream-sse');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // 处理 SSE 格式: data: {json}\n\n
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); // 保留未完成的部分
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.slice(6);
+                            try {
+                                const event = JSON.parse(jsonStr);
+                                const eventDiv = document.createElement('div');
+                                eventDiv.className = 'event-item';
+                                eventDiv.innerHTML = `
+                                    <span class="event-type">${event.type}</span>: 
+                                    ${JSON.stringify(event.data)}
+                                `;
+                                output.appendChild(eventDiv);
+                                output.scrollTop = output.scrollHeight;
+                            } catch (e) {
+                                console.error('Parse error:', e);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+            
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
