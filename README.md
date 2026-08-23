@@ -63,4 +63,4 @@ curl http://localhost:8000/stream-sse
 - **异步生成器**: 使用 `async def` + `yield` 创建异步数据流
 - **StreamingResponse**: FastAPI 的流式响应包装器
 - **SSE 格式**: `data: {json}\n\n` 标准格式
-- **前端消费**: 使用 `fetch` + `ReadableStream` 接收流式数据
+- **前端消费**: 使用 `fetch` + `ReadableStream` 逐块接收流式数据
